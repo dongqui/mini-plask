@@ -14,6 +14,7 @@ import {
   createCamera,
   createDirectionalLight,
   createHemisphericLight,
+  createJoints,
   getRandomStringKey,
   getSplittedFileName,
 } from "./utils";
@@ -250,6 +251,8 @@ const App = () => {
         DEFAULT_SKELETON_VIEWER_OPTION
       );
       setSkeletonViewer(innerSkeletonViewer);
+
+      createJoints(currentAsset, scene)
     }
   }, [currentAsset, scene, skeletonViewer]);
 
