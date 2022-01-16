@@ -3,4 +3,4 @@ export { default as createHemisphericLight } from "./createHemisphericLight";
 export { default as createDirectionalLight } from "./createDirectionalLight";
 export { default as getSplittedFileName } from "./getSplittedFileName";
 export { default as getRandomStringKey } from "./getRandomStringKey";
-export { default as createJoints } from "./createJoints";
+export { default as createAndAttachJointOnBones } from "./createAndAttachJointOnBones";

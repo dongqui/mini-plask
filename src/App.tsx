@@ -14,7 +14,7 @@ import {
   createCamera,
   createDirectionalLight,
   createHemisphericLight,
-  createJoints,
+  createAndAttachJointOnBones,
   getRandomStringKey,
   getSplittedFileName,
 } from "./utils";
@@ -252,7 +252,7 @@ const App = () => {
       );
       setSkeletonViewer(innerSkeletonViewer);
 
-      createJoints(currentAsset, scene)
+      createAndAttachJointOnBones(currentAsset, scene);
     }
   }, [currentAsset, scene, skeletonViewer]);
 
