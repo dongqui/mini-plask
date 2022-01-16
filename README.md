@@ -26,10 +26,15 @@
 
 6. export
  - 현재 모션에서 animationGroup은 생성 후  export
- > Question
+ > Question<br>
  export 로직 중간에 scene에서 animationGroup은 제거 이유는...!?
  
 
+### Joint 생성
+ - 각각의 bone에 joint를 생성하여 부착한다!
+   - BABYLON.MeshBuilder.CreateSphere -> bone이 meshe의 부모로 있기 때문에 메쉬 생성후 본에 부착 (Mesh.attachToBone)
+>Issue<br>
+클릭 이벤트가 실행되는 joint가 있고, 안 되는 Joint가 있다...!?
 # Mini Plask
 
 > React, Babylon, TypeScript, Styled-Components
