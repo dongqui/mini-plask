@@ -42,6 +42,7 @@ const DEFAULT_FROM = 0;
 const DEFAULT_TO = 10;
 
 const App = () => {
+  const gizmoManagerRef = useRef<BABYLON.GizmoManager | null>(null);
   const renderingCanvas = useRef<HTMLCanvasElement>(null);
   const [scene, setScene] = useState<BABYLON.Scene>();
   // prettier-ignore
@@ -73,6 +74,7 @@ const App = () => {
 
       innerScene.onReadyObservable.addOnce((scene) => {
         handleSceneReady(scene);
+        gizmoManagerRef.current = new BABYLON.GizmoManager(scene);
         setScene(scene);
       });
       innerScene.onDisposeObservable.addOnce(() => {
@@ -195,65 +197,67 @@ const App = () => {
   );
 
   const handleVisualizeButtonClick = useCallback(() => {
-    if (scene && currentAsset) {
-      const {
-        id: assetId,
-        meshes,
-        geometries,
-        skeleton,
-        bones,
-        transformNodes,
-      } = currentAsset;
+    if (!scene || !currentAsset || !gizmoManagerRef.current) return;
+    
+    const {
+      id: assetId,
+      meshes,
+      geometries,
+      skeleton,
+      bones,
+      transformNodes,
+    } = currentAsset;
 
-      if (skeletonViewer) {
-        skeletonViewer.dispose();
-      }
-
-      scene.meshes.forEach((mesh) => {
-        mesh.getChildMeshes().forEach((childMesh) => {
-          scene.removeMesh(childMesh);
-        });
-        scene.removeMesh(mesh);
-      });
-
-      scene.geometries.forEach((geometry) => {
-        scene.removeGeometry(geometry);
-      });
-
-      scene.skeletons.forEach((skeleton) => {
-        scene.removeSkeleton(skeleton);
-      });
-
-      scene.transformNodes.forEach((transformNode) => {
-        scene.removeTransformNode(transformNode);
-      });
-
-      meshes.forEach((mesh) => {
-        scene.addMesh(mesh);
-      });
-
-      geometries.forEach((geometry) => {
-        scene.addGeometry(geometry);
-      });
-
-      scene.addSkeleton(skeleton);
-
-      transformNodes.forEach((transformNode) => {
-        scene.addTransformNode(transformNode);
-      });
-
-      const innerSkeletonViewer = new BABYLON.SkeletonViewer(
-        skeleton,
-        meshes[0],
-        scene,
-        true,
-        meshes[0].renderingGroupId,
-        DEFAULT_SKELETON_VIEWER_OPTION
-      );
-      setSkeletonViewer(innerSkeletonViewer);
-
-      createAndAttachJointOnBones(currentAsset, scene);
+    if (skeletonViewer) {
+      skeletonViewer.dispose();
     }
+
+    scene.meshes.forEach((mesh) => {
+      mesh.getChildMeshes().forEach((childMesh) => {
+        scene.removeMesh(childMesh);
+      });
+      scene.removeMesh(mesh);
+    });
+
+    scene.geometries.forEach((geometry) => {
+      scene.removeGeometry(geometry);
+    });
+
+    scene.skeletons.forEach((skeleton) => {
+      scene.removeSkeleton(skeleton);
+    });
+
+    scene.transformNodes.forEach((transformNode) => {
+      scene.removeTransformNode(transformNode);
+    });
+
+    meshes.forEach((mesh) => {
+      mesh.isPickable = false;
+      scene.addMesh(mesh);
+    });
+
+    geometries.forEach((geometry) => {
+      scene.addGeometry(geometry);
+    });
+
+    scene.addSkeleton(skeleton);
+
+    transformNodes.forEach((transformNode) => {
+      scene.addTransformNode(transformNode);
+    });
+
+    const innerSkeletonViewer = new BABYLON.SkeletonViewer(
+      skeleton,
+      meshes[0],
+      scene,
+      true,
+      meshes[0].renderingGroupId,
+      DEFAULT_SKELETON_VIEWER_OPTION
+    );
+    setSkeletonViewer(innerSkeletonViewer);
+
+    createAndAttachJointOnBones(currentAsset, scene, gizmoManagerRef.current);
+
   }, [currentAsset, scene, skeletonViewer]);
 
   const handleExportGlbButtonClick = useCallback(() => {
