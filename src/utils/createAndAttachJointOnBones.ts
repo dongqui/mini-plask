@@ -1,9 +1,10 @@
 import * as BABYLON from '@babylonjs/core';
 import { Asset } from "../types";
 
-function handleClickJoint (gizmoManager: BABYLON.GizmoManager) {
+function handleClickJoint (gizmoManager: BABYLON.GizmoManager, bone: BABYLON.Bone) {
     return function (event: BABYLON.ActionEvent) {
         gizmoManager.positionGizmoEnabled = true;
+        gizmoManager.attachToNode(bone.getTransformNode());
     }
 }
 
@@ -13,11 +14,16 @@ function handleHoverJoint(scene: BABYLON.Scene) {
     }    
 }
 
-function registerActionManagerOnJoint(joint: BABYLON.Mesh, scene: BABYLON.Scene, gizmoManager: BABYLON.GizmoManager) {
+function registerActionManagerOnJoint(
+    joint: BABYLON.Mesh, 
+    scene: BABYLON.Scene, 
+    gizmoManager: BABYLON.GizmoManager,
+    bone: BABYLON.Bone,
+) {
     joint.actionManager = new BABYLON.ActionManager(scene);
 
     joint?.actionManager?.registerAction(
-        new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnPickDownTrigger, handleClickJoint(gizmoManager))
+        new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnPickDownTrigger, handleClickJoint(gizmoManager, bone))
     );
 
     joint?.actionManager?.registerAction(
@@ -38,7 +44,7 @@ function createAndAttachJointOnBones(asset: Asset, scene: BABYLON.Scene, gizmoMa
     const { id: assetId, meshes, bones } = asset;
     bones.forEach((bone) => {
         const joint = createJoints(assetId, bone, meshes[0], scene);
-        registerActionManagerOnJoint(joint, scene, gizmoManager);
+        registerActionManagerOnJoint(joint, scene, gizmoManager, bone);
     });
 }
 
