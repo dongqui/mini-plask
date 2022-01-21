@@ -1,314 +1,51 @@
-import {
-  ChangeEvent,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import * as BABYLON from "@babylonjs/core";
+import { ChangeEvent, useEffect, useRef } from "react";
 import "@babylonjs/loaders/glTF";
-import { GLTF2Export, IExportOptions } from "@babylonjs/serializers/glTF";
 import styled from "styled-components";
-import {
-  createCamera,
-  createDirectionalLight,
-  createHemisphericLight,
-  createAndAttachJointOnBones,
-  getRandomStringKey,
-  getSplittedFileName,
-} from "./utils";
-import { Asset, Motion, MotionDatum, Extension } from "./types";
+import { exportGlb } from "./utils";
 import Dropdown from "./components/Dropdown";
-import { DEFAULT_FPS, DEFAULT_SPEED, DEFAULT_FROM, DEFAULT_TO, DEFAULT_SKELETON_VIEWER_OPTION } from './constants'
+import { DEFAULT_SPEED, DEFAULT_FROM, DEFAULT_TO } from './constants'
+import { useTypedDispatch, useTypedSelector } from "./hooks";
+import { initBabylonThunk, visulizeThunk, uploadFileThunk, createAndSetCurrentAnimationGroupThunk } from "./store/babylon/thunks";
+import * as babylonActions from './store/babylon/actions';
 
 
 const App = () => {
-  const gizmoManagerRef = useRef<BABYLON.GizmoManager | null>(null);
+  const dispatch = useTypedDispatch();
+  const { scene, skeletonViewer, assets, motions, currentMotion, currentAsset, currentAnimationGroup } = useTypedSelector(state => state.babyon);
   const renderingCanvas = useRef<HTMLCanvasElement>(null);
-  const [scene, setScene] = useState<BABYLON.Scene>();
-  // prettier-ignore
-  const [skeletonViewer, setSkeletonViewer] = useState<BABYLON.SkeletonViewer>();
-  const [currentAsset, setCurrentAsset] = useState<Asset>();
-  const [currentMotion, setCurrentMotion] = useState<Motion | null>();
-  // prettier-ignore
-  const [currentAnimationGroup, setCurrentAnimationGroup] = useState<BABYLON.AnimationGroup>();
-  const [assetList, setAssetList] = useState<Asset[]>([]);
-  const [motionList, setMotionList] = useState<Motion[]>([]);
 
-  useEffect(() => {
-    const handleSceneReady = (scene: BABYLON.Scene) => {
-      scene.useRightHandedSystem = true;
-      scene.clearColor = BABYLON.Color4.FromColor3(
-        BABYLON.Color3.FromHexString("#202020")
-      );
-      createCamera(scene);
-      createHemisphericLight(scene);
-      createDirectionalLight(scene);
-
-      // const box = BABYLON.MeshBuilder.CreateBox("box", { size: 2 }); // dummy mesh
-    };
-
+  useEffect(() => {    
     if (renderingCanvas.current) {
-      BABYLON.Animation.AllowMatricesInterpolation = true;
-      const engine = new BABYLON.Engine(renderingCanvas.current, true);
-      const innerScene = new BABYLON.Scene(engine);
-
-      innerScene.onReadyObservable.addOnce((scene) => {
-        handleSceneReady(scene);
-        gizmoManagerRef.current = new BABYLON.GizmoManager(scene);
-        setScene(scene);
-      });
-      innerScene.onDisposeObservable.addOnce(() => {
-        window.location.reload();
-      });
-
-      engine.runRenderLoop(() => {
-        innerScene.render();
-      });
-
-      return () => {
-        engine.dispose();
-      };
+      dispatch(initBabylonThunk(renderingCanvas.current));
     }
-  }, []);
+  }, [dispatch]);
 
-  useEffect(() => {
-    if (scene && currentAsset && currentMotion) {
-      const newAnimationGroup = new BABYLON.AnimationGroup(currentMotion.name);
-      currentMotion.motionData.forEach((motionDatum) => {
-        let animation: BABYLON.Animation;
-        if (motionDatum.property === "rotationQuaternion") {
-          animation = new BABYLON.Animation(
-            motionDatum.name,
-            motionDatum.property,
-            DEFAULT_FPS,
-            BABYLON.Animation.ANIMATIONTYPE_QUATERNION,
-            BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE
-          );
-        } else {
-          animation = new BABYLON.Animation(
-            motionDatum.name,
-            motionDatum.property,
-            DEFAULT_FPS,
-            BABYLON.Animation.ANIMATIONTYPE_VECTOR3,
-            BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE
-          );
-        }
-        animation.setKeys(motionDatum.transformKeys);
-
-        newAnimationGroup.addTargetedAnimation(animation, motionDatum.target);
-      });
-
-      newAnimationGroup.normalize(DEFAULT_FROM, DEFAULT_TO);
-      setCurrentAnimationGroup(newAnimationGroup);
-
-      return () => {
-        newAnimationGroup.stop().dispose();
-      };
-    }
-  }, [scene, currentMotion, currentAsset]);
-
-  function initAssetData(assetContainer: BABYLON.AssetContainer, fileName: string, fileExtension: Extension) {
-    const {
-      meshes,
-      geometries,
-      skeletons,
-      transformNodes,
-      animationGroups,
-    } = assetContainer;
-
-    const assetId = getRandomStringKey();
-    const newAsset: Asset = {
-      id: assetId,
-      name: fileName,
-      extension: fileExtension,
-      meshes,
-      geometries,
-      skeleton: skeletons[0],
-      bones: skeletons[0].bones,
-      transformNodes: transformNodes,
-    };
-
-    const newMotions: Motion[] = [];
-    animationGroups.forEach((animationGroup, idx) => {
-      animationGroup.stop();
-
-      const motionData: MotionDatum[] = [];
-      animationGroup.targetedAnimations.forEach(
-        ({ target, animation }) => {
-          motionData.push({
-            name: animation.name,
-            target,
-            property: animation.targetProperty,
-            transformKeys: [...animation.getKeys()],
-          });
-        }
-      );
-
-      newMotions.push({
-        id: getRandomStringKey(),
-        name: animationGroup.name,
-        assetId: assetId,
-        motionData,
-      });
-    });
-
-    setAssetList((prev) => [...prev, newAsset]);
-    setMotionList((prev) => [...prev, ...newMotions]);    
+  function handleImportInputChange(event: ChangeEvent<HTMLInputElement>) {
+      const targetFile = event.target.files?.[0];
+      if (targetFile) {
+        dispatch(uploadFileThunk(targetFile));
+      }                  
   }
 
-  const handleImportInputChange = useCallback(
-    async (event: ChangeEvent<HTMLInputElement>) => {
-      const targetFile = event.target.files?.[0];
-      if (targetFile && scene) {
-        const [fileName, fileExtension] = getSplittedFileName(targetFile.name);
-        if (fileExtension === "glb") {
-          try {            
-            const loadedAssetContainer = await BABYLON.SceneLoader.LoadAssetContainerAsync(
-              "file:",
-              targetFile,
-              scene
-            );
-            initAssetData(loadedAssetContainer, fileName, fileExtension);
-            
-          } catch (error) {
-            console.error(error);
-          }
-        } else if (fileExtension === "fbx") {
-        }
-      }
-    },
-    [scene]
-  );
+  function handleVisualizeButtonClick() {
+    dispatch(visulizeThunk());
+  };
 
-  const handleVisualizeButtonClick = useCallback(() => {
-    if (!scene || !currentAsset || !gizmoManagerRef.current) return;
+  function handleExportGlbButtonClick() {    
+    if (!scene || !currentAsset || !currentMotion) return ;
+      
+    if (skeletonViewer) {
+      skeletonViewer.isEnabled = false;
+    }
     
-    const {
-      id: assetId,
-      meshes,
-      geometries,
-      skeleton,
-      bones,
-      transformNodes,
-    } = currentAsset;
+    exportGlb(scene, currentMotion, currentAsset);
 
     if (skeletonViewer) {
-      skeletonViewer.dispose();
+      skeletonViewer.isEnabled = true;
     }
+  }
 
-    scene.meshes.forEach((mesh) => {
-      mesh.getChildMeshes().forEach((childMesh) => {
-        scene.removeMesh(childMesh);
-      });
-      scene.removeMesh(mesh);
-    });
-
-    scene.geometries.forEach((geometry) => {
-      scene.removeGeometry(geometry);
-    });
-
-    scene.skeletons.forEach((skeleton) => {
-      scene.removeSkeleton(skeleton);
-    });
-
-    scene.transformNodes.forEach((transformNode) => {
-      scene.removeTransformNode(transformNode);
-    });
-
-    meshes.forEach((mesh) => {
-      mesh.isPickable = false;
-      scene.addMesh(mesh);
-    });
-
-    geometries.forEach((geometry) => {
-      scene.addGeometry(geometry);
-    });
-
-    scene.addSkeleton(skeleton);
-
-    transformNodes.forEach((transformNode) => {
-      scene.addTransformNode(transformNode);
-    });
-
-    const innerSkeletonViewer = new BABYLON.SkeletonViewer(
-      skeleton,
-      meshes[0],
-      scene,
-      true,
-      meshes[0].renderingGroupId,
-      DEFAULT_SKELETON_VIEWER_OPTION
-    );
-    setSkeletonViewer(innerSkeletonViewer);
-
-    createAndAttachJointOnBones(currentAsset, scene, gizmoManagerRef.current);
-
-  }, [currentAsset, scene, skeletonViewer]);
-
-  const handleExportGlbButtonClick = useCallback(() => {
-    const options: IExportOptions = {
-      shouldExportNode: (node: BABYLON.Node) => {
-        return (
-          !node.name.includes("joint") &&
-          !node.name.includes("ground") &&
-          !node.name.includes("scene")
-        );
-      },
-      // metadataSelector: (metadata: any) => {
-      //   return metadata;
-      // },
-      // animationSampleRate: 30,
-      // exportWithoutWaitingForScene: false,
-      // exportUnusedUVs: false,
-      // includeCoordinateSystemConversionNodes: false,
-    };
-
-    if (scene && currentAsset && currentMotion) {
-      if (skeletonViewer) {
-        skeletonViewer.isEnabled = false;
-      }
-
-      scene.animationGroups.forEach((animationGroup) => {
-        scene.removeAnimationGroup(animationGroup);
-      });
-
-      const newAnimationGroup = new BABYLON.AnimationGroup(currentMotion.name);
-      currentMotion.motionData.forEach((motionDatum) => {
-        let animation: BABYLON.Animation;
-        if (motionDatum.property === "rotationQuaternion") {
-          animation = new BABYLON.Animation(
-            motionDatum.name,
-            motionDatum.property,
-            DEFAULT_FPS,
-            BABYLON.Animation.ANIMATIONTYPE_QUATERNION,
-            BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE
-          );
-        } else {
-          animation = new BABYLON.Animation(
-            motionDatum.name,
-            motionDatum.property,
-            DEFAULT_FPS,
-            BABYLON.Animation.ANIMATIONTYPE_VECTOR3,
-            BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE
-          );
-        }
-        animation.setKeys(motionDatum.transformKeys);
-
-        newAnimationGroup.addTargetedAnimation(animation, motionDatum.target);
-      });
-
-      GLTF2Export.GLBAsync(scene, currentAsset.name, options).then((glb) => {
-        glb.downloadFiles();
-      });
-
-      if (skeletonViewer) {
-        skeletonViewer.isEnabled = true;
-      }
-    }
-  }, [scene, currentAsset, skeletonViewer, currentMotion]);
-
-  const handlePlayButtonClick = useCallback(() => {
+  function handlePlayButtonClick() {
     if (currentAnimationGroup && !currentAnimationGroup.isPlaying) {
       if (currentAnimationGroup.isStarted) {
         currentAnimationGroup.play(true);
@@ -321,37 +58,36 @@ const App = () => {
         );
       }
     }
-  }, [currentAnimationGroup]);
+  }
 
-  const handlePauseButtonClick = useCallback(() => {
+  function handlePauseButtonClick() {
     if (currentAnimationGroup && currentAnimationGroup.isPlaying) {
       currentAnimationGroup.pause();
     }
-  }, [currentAnimationGroup]);
+  }    
 
-  const handleStopButtonClick = useCallback(() => {
+  function handleStopButtonClick() {
     if (currentAnimationGroup && currentAnimationGroup.isStarted) {
       currentAnimationGroup.goToFrame(DEFAULT_FROM).stop();
     }
-  }, [currentAnimationGroup]);
+  }
 
-  const assetOptions = useMemo(() => {
-    return assetList.map((asset) => ({
-      value: asset.name,
+  const assetOptions = assets.map((asset) => ({
+    value: asset.name,
+    onSelect: () => {
+      dispatch(babylonActions.setCurrentAsset(asset));
+    }
+  }));
+
+  const motionOptions = motions
+    .filter((motion) => motion.assetId === currentAsset?.id)
+    .map((filteredMotion) => ({
+      value: filteredMotion.name,
       onSelect: () => {
-        setCurrentAsset(asset);
+        dispatch(babylonActions.setCurrentMotion(filteredMotion));
+        dispatch(createAndSetCurrentAnimationGroupThunk());
       },
     }));
-  }, [assetList, setCurrentAsset]);
-
-  const motionOptions = useMemo(() => {
-    return motionList
-      .filter((motion) => motion.assetId === currentAsset?.id)
-      .map((filteredMotion) => ({
-        value: filteredMotion.name,
-        onSelect: () => setCurrentMotion(filteredMotion),
-      }));
-  }, [motionList, currentAsset, setCurrentMotion]);
 
   return (
     <Container>

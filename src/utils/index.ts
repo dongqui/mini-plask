@@ -4,3 +4,6 @@ export { default as createDirectionalLight } from "./createDirectionalLight";
 export { default as getSplittedFileName } from "./getSplittedFileName";
 export { default as getRandomStringKey } from "./getRandomStringKey";
 export { default as createAndAttachJointOnBones } from "./createAndAttachJointOnBones";
+export { default as initializeSkeletonViewer } from "./initializeSkeletonViewer";
+export { default as exportGlb } from "./exportGlb";
+export { default as createAssetAndMotionData } from './createAssetAndMotionData';

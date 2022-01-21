@@ -1,10 +1,10 @@
 import { applyMiddleware, createStore, combineReducers, AnyAction } from "redux";
 import { composeWithDevTools } from "redux-devtools-extension";
 import thunk, { ThunkDispatch } from "redux-thunk";
-import memo from "./memo/reducer";
+import babyon from './babylon/reducer';
 
 const rootReducer = combineReducers({
-  memo,
+  babyon,
 });
 const store = createStore(rootReducer, composeWithDevTools(applyMiddleware(thunk)));
 
