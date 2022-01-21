@@ -1,4 +1,4 @@
-import React, {
+import {
   ChangeEvent,
   useCallback,
   useEffect,
@@ -18,28 +18,10 @@ import {
   getRandomStringKey,
   getSplittedFileName,
 } from "./utils";
-import { Asset, Motion, MotionDatum } from "./types";
+import { Asset, Motion, MotionDatum, Extension } from "./types";
 import Dropdown from "./components/Dropdown";
+import { DEFAULT_FPS, DEFAULT_SPEED, DEFAULT_FROM, DEFAULT_TO, DEFAULT_SKELETON_VIEWER_OPTION } from './constants'
 
-const DEFAULT_SKELETON_VIEWER_OPTION = {
-  pauseAnimations: false,
-  returnToRest: false,
-  computeBonesUsingShaders: true,
-  useAllBones: true, // error with false
-  displayMode: BABYLON.SkeletonViewer.DISPLAY_SPHERE_AND_SPURS,
-  displayOptions: {
-    sphereBaseSize: 0.01,
-    sphereScaleUnit: 15,
-    sphereFactor: 0.9,
-    midStep: 0.25,
-    midStepFactor: 0.05,
-  },
-};
-
-const DEFAULT_FPS = 1;
-const DEFAULT_SPEED = 1;
-const DEFAULT_FROM = 0;
-const DEFAULT_TO = 10;
 
 const App = () => {
   const gizmoManagerRef = useRef<BABYLON.GizmoManager | null>(null);
@@ -60,9 +42,9 @@ const App = () => {
       scene.clearColor = BABYLON.Color4.FromColor3(
         BABYLON.Color3.FromHexString("#202020")
       );
-      const arcRotateCamera = createCamera(scene);
-      const hemisphericLight = createHemisphericLight(scene);
-      const directionalLight = createDirectionalLight(scene);
+      createCamera(scene);
+      createHemisphericLight(scene);
+      createDirectionalLight(scene);
 
       // const box = BABYLON.MeshBuilder.CreateBox("box", { size: 2 }); // dummy mesh
     };
@@ -127,65 +109,69 @@ const App = () => {
     }
   }, [scene, currentMotion, currentAsset]);
 
+  function initAssetData(assetContainer: BABYLON.AssetContainer, fileName: string, fileExtension: Extension) {
+    const {
+      meshes,
+      geometries,
+      skeletons,
+      transformNodes,
+      animationGroups,
+    } = assetContainer;
+
+    const assetId = getRandomStringKey();
+    const newAsset: Asset = {
+      id: assetId,
+      name: fileName,
+      extension: fileExtension,
+      meshes,
+      geometries,
+      skeleton: skeletons[0],
+      bones: skeletons[0].bones,
+      transformNodes: transformNodes,
+    };
+
+    const newMotions: Motion[] = [];
+    animationGroups.forEach((animationGroup, idx) => {
+      animationGroup.stop();
+
+      const motionData: MotionDatum[] = [];
+      animationGroup.targetedAnimations.forEach(
+        ({ target, animation }) => {
+          motionData.push({
+            name: animation.name,
+            target,
+            property: animation.targetProperty,
+            transformKeys: [...animation.getKeys()],
+          });
+        }
+      );
+
+      newMotions.push({
+        id: getRandomStringKey(),
+        name: animationGroup.name,
+        assetId: assetId,
+        motionData,
+      });
+    });
+
+    setAssetList((prev) => [...prev, newAsset]);
+    setMotionList((prev) => [...prev, ...newMotions]);    
+  }
+
   const handleImportInputChange = useCallback(
     async (event: ChangeEvent<HTMLInputElement>) => {
       const targetFile = event.target.files?.[0];
       if (targetFile && scene) {
         const [fileName, fileExtension] = getSplittedFileName(targetFile.name);
         if (fileExtension === "glb") {
-          try {
+          try {            
             const loadedAssetContainer = await BABYLON.SceneLoader.LoadAssetContainerAsync(
               "file:",
               targetFile,
               scene
             );
-
-            const {
-              meshes,
-              geometries,
-              skeletons,
-              transformNodes,
-              animationGroups,
-            } = loadedAssetContainer;
-
-            const assetId = getRandomStringKey();
-            const newAsset: Asset = {
-              id: assetId,
-              name: fileName,
-              extension: fileExtension,
-              meshes,
-              geometries,
-              skeleton: skeletons[0],
-              bones: skeletons[0].bones,
-              transformNodes: transformNodes,
-            };
-
-            const newMotions: Motion[] = [];
-            animationGroups.forEach((animationGroup, idx) => {
-              animationGroup.stop();
-
-              const motionData: MotionDatum[] = [];
-              animationGroup.targetedAnimations.forEach(
-                ({ target, animation }) => {
-                  motionData.push({
-                    name: animation.name,
-                    target,
-                    property: animation.targetProperty,
-                    transformKeys: [...animation.getKeys()],
-                  });
-                }
-              );
-
-              newMotions.push({
-                id: getRandomStringKey(),
-                name: animationGroup.name,
-                assetId: assetId,
-                motionData,
-              });
-            });
-
-            setAssetList((prev) => [...prev, newAsset]);
-            setMotionList((prev) => [...prev, ...newMotions]);
+            initAssetData(loadedAssetContainer, fileName, fileExtension);
+            
           } catch (error) {
             console.error(error);
           }
