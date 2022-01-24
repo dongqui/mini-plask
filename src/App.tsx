@@ -7,11 +7,12 @@ import { DEFAULT_SPEED, DEFAULT_FROM, DEFAULT_TO } from './constants'
 import { useTypedDispatch, useTypedSelector } from "./hooks";
 import { initBabylonThunk, visulizeThunk, uploadFileThunk, createAndSetCurrentAnimationGroupThunk } from "./store/babylon/thunks";
 import * as babylonActions from './store/babylon/actions';
+import { TransFormWidget } from './containers/Transform/index';
 
 
 const App = () => {
   const dispatch = useTypedDispatch();
-  const { scene, skeletonViewer, assets, motions, currentMotion, currentAsset, currentAnimationGroup } = useTypedSelector(state => state.babyon);
+  const { scene, skeletonViewer, assets, motions, currentMotion, currentAsset, currentAnimationGroup } = useTypedSelector(state => state.babylon);
   const renderingCanvas = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {    
@@ -108,6 +109,7 @@ const App = () => {
       </header>
       <main>
         <canvas ref={renderingCanvas} id="renderingCanvas" />
+        <TransFormWidget/>
       </main>
       <footer>by kennyCha @Plask</footer>
     </Container>

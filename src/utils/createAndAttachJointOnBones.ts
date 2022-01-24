@@ -3,7 +3,6 @@ import { Asset } from "../types";
 
 function handleClickJoint (gizmoManager: BABYLON.GizmoManager, bone: BABYLON.Bone) {
     return function (event: BABYLON.ActionEvent) {
-        gizmoManager.positionGizmoEnabled = true;
         gizmoManager.attachToNode(bone.getTransformNode());
     }
 }

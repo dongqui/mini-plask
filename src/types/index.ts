@@ -42,7 +42,7 @@ export type Thunk<ReturnType = void> = ThunkAction<
   AnyAction
   >
 
-export interface BabyonState {
+export interface BabylonState {
   gizmoManager: BABYLON.GizmoManager | null;
   scene: BABYLON.Scene | null;
   currentMotion: Motion | null;

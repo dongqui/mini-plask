@@ -1,8 +1,8 @@
 import { ActionType, getType } from "typesafe-actions";
 import * as Actions from "./actions";
-import { BabyonState } from "../../types";
+import { BabylonState } from "../../types";
 
-const initialState: BabyonState = {
+const initialState: BabylonState = {
   gizmoManager: null,
   scene: null,
   currentMotion: null,
@@ -14,11 +14,11 @@ const initialState: BabyonState = {
 }
 
 const reducer = (
-  state: BabyonState = initialState,
+  state: BabylonState = initialState,
   action: ActionType<typeof Actions>
 ) => {
   switch (action.type) {    
-    case getType(Actions.initBabylon):      
+    case getType(Actions.initBabylon):   
       return {
         ...state,
         gizmoManager: action.payload.gizmoManager,

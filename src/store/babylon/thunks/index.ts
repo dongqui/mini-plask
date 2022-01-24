@@ -13,7 +13,7 @@ import * as babylonActions from "../actions";
 import { DEFAULT_FPS, DEFAULT_FROM, DEFAULT_TO } from './../../../constants/index';
 
 
-const handleSceneReady = (scene: BABYLON.Scene) => {
+function handleSceneReady(scene: BABYLON.Scene) {
   scene.useRightHandedSystem = true;
   scene.clearColor = BABYLON.Color4.FromColor3(
     BABYLON.Color3.FromHexString("#202020")
@@ -23,6 +23,13 @@ const handleSceneReady = (scene: BABYLON.Scene) => {
   createDirectionalLight(scene);
 };
 
+function initGizmoManager(scene: BABYLON.Scene) {
+  const gizmoManager = new BABYLON.GizmoManager(scene);
+  gizmoManager.positionGizmoEnabled = true;
+
+  return gizmoManager;
+}
+
 export function initBabylonThunk(renderingCanvas: HTMLCanvasElement):Thunk {  
   return async (dispatch) => {
     BABYLON.Animation.AllowMatricesInterpolation = true;
@@ -31,7 +38,9 @@ export function initBabylonThunk(renderingCanvas: HTMLCanvasElement):Thunk {
 
       innerScene.onReadyObservable.addOnce((scene) => {
         handleSceneReady(scene);
-        dispatch(babylonActions.initBabylon(new BABYLON.GizmoManager(scene), scene));
+
+        const gizmoManager = initGizmoManager(scene);
+        dispatch(babylonActions.initBabylon(gizmoManager, scene));
       });
       
       innerScene.onDisposeObservable.addOnce(() => {
@@ -46,7 +55,7 @@ export function initBabylonThunk(renderingCanvas: HTMLCanvasElement):Thunk {
 
 export function visulizeThunk(): Thunk {
   return (dispatch, getState) => {
-    const { currentAsset, scene, gizmoManager, skeletonViewer } = getState().babyon;
+    const { currentAsset, scene, gizmoManager, skeletonViewer } = getState().babylon;
     if (!currentAsset || !scene || !gizmoManager) return;
     
     const innerSkeletonViewer = initializeSkeletonViewer(currentAsset, scene, skeletonViewer);
@@ -57,7 +66,7 @@ export function visulizeThunk(): Thunk {
 
 export function uploadFileThunk(file: File): Thunk {
   return async  (dispatch, getState) => {
-    const { scene } = getState().babyon;
+    const { scene } = getState().babylon;
     const [fileName, fileExtension] = getSplittedFileName(file.name);
     if (!scene || (fileExtension !== 'glb' && fileExtension !== 'fbx')) return;
     const loadedAssetContainer = await BABYLON.SceneLoader.LoadAssetContainerAsync(
@@ -73,7 +82,7 @@ export function uploadFileThunk(file: File): Thunk {
 
 export function createAndSetCurrentAnimationGroupThunk(): Thunk {
   return async (dispatch, getState) => {
-    const { currentMotion } = getState().babyon;
+    const { currentMotion } = getState().babylon;
 
     if (!currentMotion) return;
 
